@@ -1,0 +1,26 @@
+Revision history for Perl extension VMS::Queue
+
+0.01  Mon Dec 01 13:32:04 1997
+	- Copied over from VMS::Process.
+    - Implemented the xxx_list, xxx_info, and xxx_properties routines.
+      xxx_list doesn't take a property hash yet, though.
+
+0.02  Wed Dec 10 09:22:05 1997
+    - Fixed basic.t. (Was VMS::Process' tests--chopped out everything but
+      test 1)
+    - Added xxx_bitmap_decode functions.
+    - Took quicktest.pl out of MANIFEST. MakeMaker'll whine on a distclean,
+      but at least quicktest.pl won't get installed now.
+
+0.03  Mon Dec 15 12:34:12 1997
+    - Added delete_entry, delete_queue, delete_form, delete_manager, and
+      delete_characteristic functions
+    - modified the xxx_properties function. The value for each key is now a
+      hash, with four keys, INPUT_INFO, OUTPUT_INFO, INPUT_ACTION, and
+      OUTPUT_ACTION. The values for these keys will be true or false,
+      depending on whether the property is an input or output property for
+      the action or info functions. A property can be multiple things.
+    - Added stop_queue, start_queue, reset_queue, and pause_queue
+      functions.
+    - Added start_manager and stop_manager functions.
+    - Added hold_entry and release_entry functions.
