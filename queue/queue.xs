@@ -7,8 +7,8 @@
  *
  * Revision History:
  *
- * 0.1  05-Dec-1997 Dan Sugalski <sugalskd@osshe>
- *      Snagged this source from VMS::Process, and gutted appropriately.
+ * 0.01  05-Dec-1997 Dan Sugalski <sugalskd@osshe>
+ *       Snagged this source from VMS::Process, and gutted appropriately.
  *
  */
 
@@ -109,6 +109,7 @@ typedef struct {char  *ItemName;         /* Name of the item we're getting */
 #define OBJECT_QUEUE 4
 #define OBJECT_CHAR 8
 #define OBJECT_ENTRY 16
+#define OBJECT_FILE 32
 
 /* Some defines to mark 'special' things about entries */
 #define S_QUEUE_GENERIC  (1<<0)
@@ -123,20 +124,28 @@ typedef struct {char  *ItemName;         /* Name of the item we're getting */
 #define S_ENTRY_DONE     (1<<6)
 #define S_ENTRY_ANY      (S_ENTRY_BATCH | S_ENTRY_PRINT | S_ENTRY_DONE)
 #define S_FORM_ANY       (1<<7)
+#define S_FILE_ANY       (1<<8)
 #define S_ANY             -1
 
 
 /* Macro to create an entry in the array that associates string names with */
 /* their QUI$_ values, along with lots of other info for it */
 #define GETQUI_ENTRY(a, b, c, d, e, f) \
-        {#a, QUI$_##a, b, c, GETQUI_PARAM, \
+        {#a, QUI$_##a, 0, b, c, GETQUI_PARAM, \
+           d, e, f}
+#define SNDJBC_ENTRY(a, b, c, d, e, f) \
+        {#a, 0, SJC$_##a, b, c, SNDJBC_PARAM, \
+           d, e, f}
+#define MIXED_ENTRY(a, b, c, d, e, f) \
+        {#a, QUI$_##a, SJC$_##a, b, c, SNDJBC_PARAM | GETQUI_PARAM, \
            d, e, f}
 
 #define QUI$M_ 0
 
 struct MondoQueueInfoID {
   char *InfoName; /* Pointer to the item name */
-  int  SysCallValue;  /* Value to use in the system call item list */
+  int  GetQUIValue;   /* Value to use for a GETQUI syscall */
+  int  SndJBCValue;   /* Value to use for a SNDJBC syscall */
   int  BufferLen;     /* Length the return va buf needs to be. (no nul */
                       /* terminators, so must be careful with the return */
                       /* values. */
@@ -189,7 +198,23 @@ struct MondoQueueInfoID MondoQueueInfoList[] =
                S_ANY),
   GETQUI_ENTRY(EXECUTING_JOB_COUNT, 4, IS_LONGWORD, OUTPUT_INFO,
                OBJECT_QUEUE, S_ANY),
+  GETQUI_ENTRY(FILE_COPIES, 4, IS_LONGWORD, OUTPUT_INFO, OBJECT_FILE,
+               S_ANY),
+  GETQUI_ENTRY(FILE_COPIES_DONE, 4, IS_LONGWORD, OUTPUT_INFO, OBJECT_FILE,
+               S_ANY),
   GETQUI_ENTRY(FILE_COUNT, 4, IS_LONGWORD, OUTPUT_INFO, OBJECT_ENTRY,
+               S_ANY),
+  GETQUI_ENTRY(FILE_FLAGS, 4, IS_BITMAP, OUTPUT_INFO, OBJECT_FILE,
+               S_ANY),
+  GETQUI_ENTRY(FILE_IDENTIFICATION, 28, IS_STRING, OUTPUT_INFO, OBJECT_FILE,
+               S_ANY),
+  GETQUI_ENTRY(FILE_SETUP_MODULES, 255, IS_STRING, OUTPUT_INFO, OBJECT_FILE,
+               S_ANY),
+  GETQUI_ENTRY(FILE_SPECIFICATION, 255, IS_STRING, OUTPUT_INFO, OBJECT_FILE,
+               S_ANY),
+  GETQUI_ENTRY(FILE_STATUS, 4, IS_BITMAP, OUTPUT_INFO, OBJECT_FILE,
+               S_ANY),
+  GETQUI_ENTRY(FIRST_PAGE, 4, IS_LONGWORD, OUTPUT_INFO, OBJECT_FILE,
                S_ANY),
   GETQUI_ENTRY(FORM_DESCRIPTION, 255, IS_STRING, OUTPUT_INFO, OBJECT_FORM,
                S_ANY),
@@ -244,6 +269,8 @@ struct MondoQueueInfoID MondoQueueInfoList[] =
   GETQUI_ENTRY(JOB_SIZE_MINIMUM, 4, IS_LONGWORD, OUTPUT_INFO, OBJECT_QUEUE,
                S_QUEUE_OUTPUT),
   GETQUI_ENTRY(JOB_STATUS, 4, IS_BITMAP, OUTPUT_INFO, OBJECT_ENTRY, S_ANY),
+  GETQUI_ENTRY(LAST_PAGE, 4, IS_LONGWORD, OUTPUT_INFO, OBJECT_FILE,
+               S_ANY),
   GETQUI_ENTRY(LIBRARY_SPECIFICATION, 39, IS_STRING, OUTPUT_INFO,
                OBJECT_QUEUE, S_QUEUE_OUTPUT),
   GETQUI_ENTRY(LOG_QUEUE, 31, IS_STRING, OUTPUT_INFO, OBJECT_ENTRY,
@@ -260,6 +287,8 @@ struct MondoQueueInfoID MondoQueueInfoList[] =
   GETQUI_ENTRY(OPERATOR_REQUEST, 255, IS_STRING, OUTPUT_INFO,
                OBJECT_ENTRY, S_ENTRY_PRINT),
   GETQUI_ENTRY(OWNER_UIC, 4, IS_LONGWORD, OUTPUT_INFO, OBJECT_QUEUE, S_ANY),
+  GETQUI_ENTRY(PAGE_SETUP_MODULES, 256, IS_STRING, OUTPUT_INFO,
+               OBJECT_FORM, S_ANY),
   GETQUI_ENTRY(PARAMETER_1, 255, IS_STRING, OUTPUT_INFO, OBJECT_ENTRY,
                S_ENTRY_BATCH),
   GETQUI_ENTRY(PARAMETER_2, 255, IS_STRING, OUTPUT_INFO, OBJECT_ENTRY,
@@ -304,9 +333,8 @@ struct MondoQueueInfoID MondoQueueInfoList[] =
                OBJECT_QUEUE, S_ANY),
   GETQUI_ENTRY(SCSNODE_NAME, 6, IS_STRING, OUTPUT_INFO, OBJECT_MANAGER,
                S_ANY),
-/*  GETQUI_ENTRY(SEARCH_FLAGS, 4, IS_LONGWORD, INPUT_INFOETER, */
-/*  OBJECT_QUEUE | OBJECT_MANAGER | OBJECT_FORM | OBJECT_CHAR | */
-/*  OBJECT_ENTRY, S_ANY),*/
+  GETQUI_ENTRY(SEARCH_FLAGS, 4, IS_LONGWORD, INPUT_INFO, 
+               OBJECT_QUEUE | OBJECT_MANAGER | OBJECT_FORM | OBJECT_CHAR | OBJECT_ENTRY, S_ANY),
   GETQUI_ENTRY(SEARCH_JOB_NAME, 39, IS_STRING, INPUT_INFO, OBJECT_ENTRY,
                S_ANY),
   GETQUI_ENTRY(SEARCH_NAME, 31, IS_STRING, INPUT_INFO, OBJECT_QUEUE |
@@ -334,11 +362,13 @@ struct MondoQueueInfoID MondoQueueInfoList[] =
 char *MonthNames[12] = {
   "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
   "Oct", "Nov", "Dec"} ;
+
 int QueueItemCount = 0;
 int EntryItemCount = 0;
 int FormItemCount = 0;
 int CharacteristicItemCount = 0;
 int ManagerItemCount = 0;
+int FileItemCount = 0;
 
 /* Macro to fill in a 'traditional' item-list entry */
 #define init_itemlist(ile, length, code, bufaddr, retlen_addr) \
@@ -352,13 +382,14 @@ void tote_up_items()
 {
   /* Temp varaibles for all our statics, so we can be a little thread safer */
   int i, QueueItemTemp, EntryItemTemp, FormItemTemp, CharItemTemp,
-  ManagerItemTemp;
+  ManagerItemTemp, FileItemTemp;
 
   QueueItemTemp = 0;
   EntryItemTemp = 0;
   FormItemTemp = 0;
   CharItemTemp = 0;
   ManagerItemTemp = 0;
+  FileItemTemp = 0;
   
   for(i = 0; MondoQueueInfoList[i].InfoName; i++) {
     if (MondoQueueInfoList[i].UseForObject & OBJECT_QUEUE)
@@ -371,6 +402,8 @@ void tote_up_items()
       CharItemTemp++;
     if (MondoQueueInfoList[i].UseForObject & OBJECT_MANAGER)
       ManagerItemTemp++;
+    if (MondoQueueInfoList[i].UseForObject & OBJECT_FILE)
+      FileItemTemp++;
   }
 
   QueueItemCount = QueueItemTemp;
@@ -378,6 +411,7 @@ void tote_up_items()
   FormItemCount = FormItemTemp;
   CharacteristicItemCount = CharItemTemp;
   ManagerItemCount = ManagerItemTemp;
+  FileItemCount = FileItemTemp;
 }
 
 char *
@@ -521,6 +555,32 @@ generic_bitmap_decode(char *InfoName, int BitmapValue)
     bit_test(AllPurposeHV, QUI$M_FORM_TRUNCATE, "FORM_TRUNCATE",
              BitmapValue);
     bit_test(AllPurposeHV, QUI$M_FORM_WRAP, "FORM_WRAP", BitmapValue);
+  } else {
+  if (!strcmp(InfoName, "FILE_FLAGS")) {
+    AllPurposeHV = newHV();
+    bit_test(AllPurposeHV, QUI$M_FILE_BURST, "FILE_BURST",
+             BitmapValue);
+    bit_test(AllPurposeHV, QUI$M_FILE_DELETE, "FILE_DELETE",
+             BitmapValue);
+    bit_test(AllPurposeHV, QUI$M_FILE_DOUBLE_SPACE, "FILE_SOUBLE_SPACE",
+             BitmapValue);
+    bit_test(AllPurposeHV, QUI$M_FILE_FLAG, "FILE_FLAG",
+             BitmapValue);
+    bit_test(AllPurposeHV, QUI$M_FILE_TRAILER, "FILE_TRAILER",
+             BitmapValue);
+    bit_test(AllPurposeHV, QUI$M_FILE_PAGE_HEADER, "FILE_PAGE_HEADER",
+             BitmapValue);
+    bit_test(AllPurposeHV, QUI$M_FILE_PAGINATE, "FILE_PAGINATE",
+             BitmapValue);
+    bit_test(AllPurposeHV, QUI$M_FILE_PASSALL, "FILE_PASSALL",
+             BitmapValue);
+  } else {
+  if (!strcmp(InfoName, "FILE_STATUS")) {
+    AllPurposeHV = newHV();
+    bit_test(AllPurposeHV, QUI$M_FILE_CHECKPOINTED, "FILE_CHECKPOINTED",
+             BitmapValue);
+    bit_test(AllPurposeHV, QUI$M_FILE_EXECUTING, "FILE_EXECUTING",
+             BitmapValue);
   } else {
   if (!strcmp(InfoName, "JOB_FLAGS")) {
     AllPurposeHV = newHV();
@@ -696,7 +756,7 @@ generic_bitmap_decode(char *InfoName, int BitmapValue)
              BitmapValue);
     bit_test(AllPurposeHV, QUI$M_QUEUE_UNAVAILABLE, "QUEUE_UNAVAILABLE",
              BitmapValue);
-  }}}}}}}
+  }}}}}}}}}
   if (AllPurposeHV) {
     return(newRV_noinc((SV *)AllPurposeHV));
   } else {
@@ -761,15 +821,17 @@ generic_valid_properties(HV *HashToFill, int ObjectType)
 /* pass back a hash that has all the return results in it. */
 SV *
 generic_getqui_call(ITMLST *ListOItems, int ObjectType, int InfoCount,
-                    short QUIFunction, int SpecialFlags)
+                    short QUIFunction, int SpecialFlags,
+                    int PrefilledSlots, unsigned int OtherOKIOSBStatus,
+                    unsigned int *ReturnedStatus, int ContextStream)
 {
   FetchedItem *OurDataList;
   unsigned short *ReturnLengths;
   int i, LocalIndex;
   iosb GenericIOSB;
   int status;
-  int ContextStream = 0;
   HV *AllPurposeHV;
+  SV *ReturnedSV;
   unsigned short ReturnedTime[7];
   char AsciiTime[100];
   char QuadWordString[65];
@@ -793,37 +855,41 @@ generic_getqui_call(ITMLST *ListOItems, int ObjectType, int InfoCount,
     if ((MondoQueueInfoList[i].UseForObject & ObjectType) &&
         (MondoQueueInfoList[i].SpecialFlags & SpecialFlags) &&
         (MondoQueueInfoList[i].InOrOut & OUTPUT_INFO)) {
-      /* Increment the local index */
-      LocalIndex++;
       
       /* Allocate the return data buffer and zero it. Can be oddly
          sized, so we use the system malloc instead of New */
-      OurDataList[LocalIndex - 1].ReturnBuffer =
+      OurDataList[LocalIndex].ReturnBuffer =
         malloc(MondoQueueInfoList[i].BufferLen);
-      memset(OurDataList[LocalIndex - 1].ReturnBuffer, 0,
+      memset(OurDataList[LocalIndex].ReturnBuffer, 0,
              MondoQueueInfoList[i].BufferLen); 
-
+      
       /* Note some important stuff (like what we're doing) in our local */
       /* tracking array */
-      OurDataList[LocalIndex - 1].ItemName =
+      OurDataList[LocalIndex].ItemName =
         MondoQueueInfoList[i].InfoName;
-      OurDataList[LocalIndex - 1].ReturnLength = &ReturnLengths[LocalIndex
-                                                                - 1];
-      OurDataList[LocalIndex - 1].ReturnType =
+      OurDataList[LocalIndex].ReturnLength =
+        &ReturnLengths[LocalIndex - PrefilledSlots];
+      OurDataList[LocalIndex].ReturnType =
         MondoQueueInfoList[i].ReturnType;
-      OurDataList[LocalIndex - 1].ItemListEntry = i;
+      OurDataList[LocalIndex].ItemListEntry = i;
       
       /* Fill in the item list */
-      init_itemlist(&ListOItems[LocalIndex], MondoQueueInfoList[i].BufferLen,
-                    MondoQueueInfoList[i].SysCallValue,
-                    OurDataList[LocalIndex - 1].ReturnBuffer,
-                    &ReturnLengths[LocalIndex - 1]);
+      init_itemlist(&ListOItems[LocalIndex + PrefilledSlots], MondoQueueInfoList[i].BufferLen,
+                    MondoQueueInfoList[i].GetQUIValue,
+                    OurDataList[LocalIndex].ReturnBuffer,
+                    &ReturnLengths[LocalIndex]);
+
+      /* Increment the local index */
+      LocalIndex++;
     }
   }
   
   /* Make the GETQUIW call */
-  status = sys$getquiw(NULL, QUIFunction, ContextStream, ListOItems,
+  status = sys$getquiw(NULL, QUIFunction, &ContextStream, ListOItems,
                        &GenericIOSB, NULL, NULL);
+
+  /* Set the return status */
+  *ReturnedStatus = GenericIOSB.sts;
 
   /* Did it go OK? */
   if ((status == SS$_NORMAL) && (GenericIOSB.sts == JBC$_NORMAL)) {
@@ -842,12 +908,12 @@ generic_getqui_call(ITMLST *ListOItems, int ObjectType, int InfoCount,
         memset(TempStringBuffer, 0, *(OurDataList[i].ReturnLength) + 1);
         strncpy(TempStringBuffer, OurDataList[i].ReturnBuffer,
                 *(OurDataList[i].ReturnLength));
-        if (strlen(TempStringBuffer) < *(OurDataList[i].ReturnLength))
-          *(OurDataList[i].ReturnLength) = strlen(TempStringBuffer);
+        if (strlen(TempStringBuffer) < *OurDataList[i].ReturnLength)
+          *OurDataList[i].ReturnLength = strlen(TempStringBuffer);
         free(TempStringBuffer);
         /* Check to make sure we got something back, otherwise set the */
         /* value to undef */
-        if (*(OurDataList[i].ReturnLength)) {
+        if (*OurDataList[i].ReturnLength) {
           hv_store(AllPurposeHV, OurDataList[i].ItemName,
                    strlen(OurDataList[i].ItemName),
                    newSVpv(OurDataList[i].ReturnBuffer,
@@ -868,13 +934,12 @@ generic_getqui_call(ITMLST *ListOItems, int ObjectType, int InfoCount,
                  strlen(OurDataList[i].ItemName),
                  newSVpv(AsciiTime, 0), 0);
         break;
-        /* No enums for now, so comment this out */
-        /*
+        /* No enums for now, so they become longs */
       case IS_ENUM:
-        TempLongPointer = OurDataList[i].ReturnBuffer;
+/*        TempLongPointer = OurDataList[i].ReturnBuffer;
         hv_store(AllPurposeHV, OurDataList[i].ItemName,
                  strlen(OurDataList[i].ItemName),
-                 enum_name(MondoQueueInfoList[i].SysCallValue,
+                 enum_name(MondoQueueInfoList[i].GetQUIValue,
                            *TempLongPointer), 0);
         break;
         */
@@ -896,11 +961,19 @@ generic_getqui_call(ITMLST *ListOItems, int ObjectType, int InfoCount,
         
       }
     }
-    return(newRV_noinc((SV *) AllPurposeHV));
+    /* Set the returned status and return the HV we built */
+    ReturnedSV = newRV_noinc((SV *) AllPurposeHV);
   } else {
-    /* I think we failed */
-    SETERRNO(EVMSERR, status);
-    return (&sv_undef);
+    /* Well, things weren't fine and dandy. Were they almost fine and */
+    /* dandy? (Which is to say, did we return a normal status and an IOSB */
+    /* status that matches our 'other ok' status?) */
+    if ((status == SS$_NORMAL) && (GenericIOSB.sts == OtherOKIOSBStatus)) {
+      ReturnedSV = &sv_undef;
+    } else {
+      /* I think we failed */
+      SETERRNO(EVMSERR, status);
+      ReturnedSV = &sv_undef;
+    }
   }
   
   /* Free up our allocated memory */
@@ -909,6 +982,21 @@ generic_getqui_call(ITMLST *ListOItems, int ObjectType, int InfoCount,
   }
   free(OurDataList);
   free(ReturnLengths);
+
+  return(ReturnedSV);
+}
+
+/* Look up a name in the list and return its index, or -1 if it fails */
+int
+name_to_index(char *SearchName)
+{
+  int i;
+  for(i = 0; MondoQueueInfoList[i].InfoName; i++) {
+    if (!strcmp(SearchName, MondoQueueInfoList[i].InfoName))
+      return i;
+  }
+  /* Got here, so we didn't find it. */
+  return -1;
 }
 
 
@@ -931,20 +1019,48 @@ queue_list(...)
   char QueueNameBuffer[255];
   short QueueNameBufferReturnLength;
   iosb QueueIOSB;
-
+  int QUIIndex;
+  
   /* First, zero out as much of the array as we're using */
-  Zero(&QueueScanItemList, items == 0 ? 3: items, ITMLST);
+  Zero(&QueueScanItemList, items == 0 ? 3: (items / 2) + 2, ITMLST);
+
+  /* First check to see if things are wildly wrong (i.e. an odd number of */
+  /* items) */
+  if (items & 1) {
+    croak("Odd number of paramters passed!");
+  }
+
+  /* The first item's always the queue name, as that's what we're looking */
+  /* for */
+  init_itemlist(&QueueScanItemList[0], 255, QUI$_QUEUE_NAME,
+                QueueNameBuffer, &QueueNameBufferReturnLength);
   
   /* Did they pass us anything? */
   if (items == 0) {
 
     /* Fill in the item list. Right now we just return all the queues we */
     /* can get our hands on */
-    init_itemlist(&QueueScanItemList[0], 1, QUI$_SEARCH_NAME,
+    init_itemlist(&QueueScanItemList[1], 1, QUI$_SEARCH_NAME,
                   WildcardSearchName, &WildcardSearchNameReturnLength);
-    init_itemlist(&QueueScanItemList[1], 255, QUI$_QUEUE_NAME,
-                  QueueNameBuffer, &QueueNameBufferReturnLength);
   } else {
+    int i;
+    for(i = 1; i <= (items / 2); i++) {
+      /* Proceed only if we can decode the results */
+      if (-1 != (QUIIndex = name_to_index(SvPV(ST((i-1) * 2), na)))) {
+        /* Each possible type needs to be handled */
+        switch(MondoQueueInfoList[QUIIndex].ReturnType) {
+        case IS_STRING:
+        case IS_LONGWORD:
+        case IS_VMSDATE:
+        case IS_BITMAP:
+        case IS_ENUM:
+        default:
+          break;
+        }
+      } else {
+        croak("Invalid property!");
+      }
+    }
   }
   
   /* Call $GETQUI in wildcard mode */
@@ -1055,6 +1171,89 @@ entry_list(...)
     QueueStatus = sys$getquiw(0, QUI$_DISPLAY_QUEUE, &QueueContext,
                          QueueScanItemList, &QueueIOSB, NULL, 0);
     
+  }
+}
+
+void
+file_list(EntryNumber)
+     int EntryNumber
+   PPCODE:
+{
+  /* This routine rips through all the files for a particular entry and */
+  /* returns a list of hasrefs with all the file info in 'em. It's pretty */
+  /* simple, though a touch annoying. We establish an entry context, then */
+  /* repeatedly call generic_getqui_call in wildcard mode until we run out */
+  /* of files. */
+
+  /* variables for the entry itemlist */
+  ITMLST EntryItemList[2];
+  int EntryStatus;
+  unsigned int EntryContext = -1;
+  HV *FileHV;
+  
+  /* variables for the files */
+  ITMLST FileScanItemList[99]; /* Yes, this should be a pointer and the */
+                               /* memory should be dynamically */
+                               /* allocated. When I try, wacky things */
+                               /* happen, so we fall back to this hack */
+  unsigned int FileStatus;
+  short EntryNumberReturnLength;
+  iosb EntryIOSB;
+  int EntryFlags = QUI$M_SEARCH_WILDCARD;
+  unsigned short EntryFlagsReturnLength;
+
+  char QueueName[255];
+  char UserName[255];
+  unsigned short QueueNameReturnLength;  
+  unsigned short UserNameReturnLength;  
+    
+  
+  if (FileItemCount == 0) {
+    tote_up_items();
+  }
+  
+
+  /* First, zero out as much of the arrays as we're using */
+  Zero(&EntryItemList, 5, ITMLST);
+  Zero(&FileScanItemList, FileItemCount + 2, ITMLST);  
+  
+  /* Fill in the entry item list, which we use to establish our context */
+  init_itemlist(&EntryItemList[0], sizeof(EntryNumber), QUI$_SEARCH_NUMBER,
+                &EntryNumber, &EntryNumberReturnLength);
+  init_itemlist(&EntryItemList[1], sizeof(EntryFlags), QUI$_SEARCH_FLAGS,
+                &EntryFlags, &EntryFlagsReturnLength);
+  init_itemlist(&EntryItemList[2], 255, QUI$_QUEUE_NAME,
+                QueueName, &QueueNameReturnLength);
+  init_itemlist(&EntryItemList[3], 255, QUI$_USERNAME,
+                UserName, &UserNameReturnLength);
+  
+  /* Call $GETQUI in wildcard mode for the entry */
+  EntryStatus = sys$getquiw(NULL, QUI$_DISPLAY_ENTRY, &EntryContext,
+                            EntryItemList, &EntryIOSB, NULL, NULL);
+
+  /* If things were OK, then  */
+  if ((EntryStatus == SS$_NORMAL) && (EntryIOSB.sts == JBC$_NORMAL)) {
+    /* If we're here, then we must have established context for the */
+    /* entry. Whip through */
+    FileHV = (HV *)generic_getqui_call(&FileScanItemList[0], OBJECT_FILE,
+                                       FileItemCount, QUI$_DISPLAY_FILE, S_ANY,
+                                       0, JBC$_NOMOREFILE, &FileStatus,
+                                       EntryContext);
+    
+    while (FileStatus == JBC$_NORMAL) {
+      /* Stick the returned value on the return stack */
+      XPUSHs((SV *)FileHV);
+      
+      /* Call again */
+      FileHV = (HV *)generic_getqui_call(&FileScanItemList[0], OBJECT_FILE,
+                                         FileItemCount, QUI$_DISPLAY_FILE,
+                                         S_ANY, 0, JBC$_NOMOREFILE,
+                                         &FileStatus, EntryContext);
+    }
+  } else {
+    /* Got an error, so croak appropriately */
+    croak(decode_jbc(EntryIOSB.sts));
+    XSRETURN_EMPTY;
   }
 }
 
@@ -1220,6 +1419,7 @@ queue_info(QueueName)
   unsigned int Status;
   iosb QueueIOSB;
   unsigned int SubType;
+  unsigned int ReturnedJBCStatus;
   
   /* If we've not gotten the count of items, go get it now */
   if (QueueItemCount == 0) {
@@ -1256,7 +1456,9 @@ queue_info(QueueName)
     /* value. We don't need to go messing with the item list, since what we */
     /* used for the last call is OK to pass along to this one. */
     ST(0) = generic_getqui_call(ListOItems, OBJECT_QUEUE, QueueItemCount,
-                                QUI$_DISPLAY_QUEUE, SubType);
+                                QUI$_DISPLAY_QUEUE, SubType, 1,
+                                JBC$_NOMOREQUE, &ReturnedJBCStatus,
+                                0);
   } else {
     ST(0) = &sv_undef;
     SETERRNO(EVMSERR, Status);
@@ -1280,6 +1482,7 @@ entry_info(EntryNumber)
   unsigned short EntryFlagsLength;
   unsigned int Status;
   iosb EntryIOSB;
+  unsigned int ReturnedJBCStatus;
   unsigned int SubType;
   
   /* If we've not gotten the count of items, go get it now */
@@ -1323,7 +1526,8 @@ entry_info(EntryNumber)
     /* value. We don't need to go messing with the item list, since what we */
     /* used for the last call is OK to pass along to this one. */
     ST(0) = generic_getqui_call(ListOItems, OBJECT_ENTRY, EntryItemCount,
-                                QUI$_DISPLAY_ENTRY, SubType);
+                                QUI$_DISPLAY_ENTRY, SubType, 1,
+                                JBC$_NOMOREENT, &ReturnedJBCStatus, 0);
   } else {
     ST(0) = &sv_undef;
     SETERRNO(EVMSERR, Status);
@@ -1342,6 +1546,7 @@ form_info(FormNumber)
   ITMLST *ListOItems;
   unsigned short ReturnBufferLength = 0;
   unsigned int SubType;
+  unsigned int ReturnedJBCStatus;
   
   /* If we've not gotten the count of items, go get it now */
   if (FormItemCount == 0) {
@@ -1364,7 +1569,8 @@ form_info(FormNumber)
   /* value. We don't need to go messing with the item list, since what we */
   /* used for the last call is OK to pass along to this one. */
   ST(0) = generic_getqui_call(ListOItems, OBJECT_FORM, FormItemCount,
-                              QUI$_DISPLAY_FORM, SubType);
+                              QUI$_DISPLAY_FORM, SubType, 1,
+                              JBC$_NOMOREFORM, &ReturnedJBCStatus, 0);
       
   /* Give back the allocated item list memory */
   free(ListOItems);
@@ -1379,6 +1585,7 @@ manager_info(ManagerName)
   ITMLST *ListOItems;
   unsigned short ReturnBufferLength = 0;
   unsigned int SubType;
+  unsigned int ReturnedJBCStatus;
   
   /* If we've not gotten the count of items, go get it now */
   if (ManagerItemCount == 0) {
@@ -1401,7 +1608,8 @@ manager_info(ManagerName)
   /* value. We don't need to go messing with the item list, since what we */
   /* used for the last call is OK to pass along to this one. */
   ST(0) = generic_getqui_call(ListOItems, OBJECT_MANAGER, ManagerItemCount,
-                              QUI$_DISPLAY_MANAGER, SubType);
+                              QUI$_DISPLAY_MANAGER, SubType, 1,
+                              JBC$_NOMOREQMGR, &ReturnedJBCStatus, 0);
       
   /* Give back the allocated item list memory */
   free(ListOItems);
@@ -1423,6 +1631,15 @@ entry_properties()
   HV *EntryPropHV;
   EntryPropHV = newHV();
   ST(0) = newRV_noinc(generic_valid_properties(EntryPropHV, OBJECT_ENTRY));
+}
+  
+SV *
+file_properties()
+   CODE:
+{
+  HV *FilePropHV;
+  FilePropHV = newHV();
+  ST(0) = newRV_noinc(generic_valid_properties(FilePropHV, OBJECT_FILE));
 }
 
 SV *
@@ -1465,6 +1682,15 @@ queue_bitmap_decode(InfoName, BitmapValue)
 
 SV *
 entry_bitmap_decode(InfoName, BitmapValue)
+     char *InfoName
+     int BitmapValue
+   CODE:
+{
+  ST(0) = generic_bitmap_decode(InfoName, BitmapValue);
+}
+
+SV *
+file_bitmap_decode(InfoName, BitmapValue)
      char *InfoName
      int BitmapValue
    CODE:

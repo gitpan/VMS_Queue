@@ -11,8 +11,24 @@ require DynaLoader;
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
 @EXPORT = qw();
-@EXPORT_OK = qw();
-$VERSION = '0.03';
+
+@EXPORT_OK = qw(&queue_list &stop_queue &pause_queue &reset_queue
+                &start_queue &delete_queue &create_queue &modify_queue &submit 
+                &queue_info &queue_properties &queue_bitmap_decode 
+                &entry_list &delete_entry &hold_entry &release_entry 
+                &modify_entry &entry_properties &entry_bitmap_decode
+                &entry_info &file_list &file_properties &file_bitmap_decode
+                &form_list  &delete_form &create_form &modify_form  
+                &form_info &form_properties &form_bitmap_decode
+                &characteristics_list &create_characteristics
+                &delete_characteristics &modify_characteristics
+                &characteristic_info &characteristic_properties
+                &characteristic_bitmap_decode &manager_list
+                &stop_manager &start_manager &create_manager &modify_manager
+                &delete_manager &manager_info &manager_properties
+                &manager_bitmap_decode);
+
+$VERSION = '0.07';
 
 bootstrap VMS::Queue $VERSION;
 
@@ -78,6 +94,11 @@ Entry routines
   \%EntryProperties = entry_info($Entry_Number);
   \%ValidEntryProperties = entry_properties();
   \%DecodedBitmap = entry_bitmap_decode($AttribName, $Bitmap);
+
+File routines
+  @ListOfFileHashrefs = file_list($Entry_Number); (Unimplemented)
+  \%ValidFileProperties = file_properties();
+  \%DecodedBitmap = file_bitmap_decode($AttribName, $Bitmap)
 
 Form Routines
 
@@ -228,7 +249,31 @@ information on a queue or entry)
 
 Takes an attribute and an integer, and returns a reference to a hash. The
 hash decodes the bitmap--each key refers to a bit in the bitmap, with the
-value set to true or false, depending on the value of the bit in the integer.
+value set to true or false, depending on the value of the bit in the
+integer.
+
+=head2 File functiond
+
+The file functions deal with files within queue entries.
+
+=item file_list()
+
+This function returns a list of hashrefs. Each hashref corresponds to one
+file for the entry. (We do things this way since there's no easy way to
+refer to a particular file within an entry, so the xxx_list/xxx_info pair
+that the other groups use has no easy way to implement.)
+
+=item file_properties()
+
+This function returns a list of all the valid properties that can be
+returned for a file.
+
+=item file_bitmap_decode
+
+Takes an attribute and an integer, and returns a reference to a hash. The
+hash decodes the bitmap--each key refers to a bit in the bitmap, with the
+value set to true or false, depending on the value of the bit in the
+integer.
 
 =head2 Form functions
 

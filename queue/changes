@@ -24,3 +24,24 @@ Revision history for Perl extension VMS::Queue
       functions.
     - Added start_manager and stop_manager functions.
     - Added hold_entry and release_entry functions.
+
+0.05  Mon Dec 23 15:25:03 1997
+    - Added docs for the file_list, file_properties, and file_bitmap_decode
+      functions.
+    - Added in code for the file_properties and file_bitmap_decode functions.
+
+0.06  Wed Dec 31 15:54:34 1997
+    - Added all the functions to the EXPORT_OK list.
+
+0.07  Wed Jan 07 09:47:06 1998
+    - Made a change to generic_getqui_call to take two additional parameters--
+      the number of 'reserved' slots at the beginning of the item list, and
+      a second 'okay' JBC status. (Added for file_info, which needs to work
+      in wildcard mode)
+    - Added return JBC status and context parameter to gneric_getqui_call.
+      Amazingly, it all still works.
+    - Added the file_list function
+    - Fixed generic_getqui_call--it leaked memory like a sieve.
+    - generic_getqui_call's array indexing was totally whacked. It never
+      showed up before because everything always called it with an offset
+      of one, which just happened to work.
